@@ -19,6 +19,7 @@ repositories {
 dependencies {
     implementation("io.vertx:vertx-core:4.1.0")
     implementation("io.vertx:vertx-zookeeper:4.1.0")
+    implementation("io.vertx:vertx-hazelcast:4.1.0")
     // Use JUnit Jupiter API for testing.
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.2")
 

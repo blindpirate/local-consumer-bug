@@ -8,35 +8,28 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.spi.cluster.ClusterManager;
+import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
 import io.vertx.spi.cluster.zookeeper.ZookeeperClusterManager;
 
 import java.util.Map;
 
 public class App {
+    private static final boolean isConsumer = System.getenv("CONSUMER") != null;
+    private static final boolean enableDistributedConsumer = System.getenv("ENABLE_DISTRIBUTED_CONSUMER") != null;
+    private static final boolean useHazelCast = "hazelcast".equals(System.getenv("MANAGER"));
+    private static final int port = Integer.parseInt(System.getenv("PORT"));
+
     public static void main(String[] args) {
-        int port = Integer.parseInt(System.getenv("PORT"));
-        boolean consumer = System.getenv("CONSUMER") != null;
-        ClusterManager cm = new ZookeeperClusterManager(
-                new JsonObject(Map.of("zookeeperHosts", "localhost:2181"))
-        );
-
-        VertxOptions options = new VertxOptions().setClusterManager(cm)
-                .setEventBusOptions(
-                        new EventBusOptions()
-                                .setClusterPublicHost("localhost")
-                                .setClusterPublicPort(port)
-                                .setHost("0.0.0.0")
-                                .setPort(port)
-                );
-
-        Vertx.clusteredVertx(options).onComplete(result -> {
+        Vertx.clusteredVertx(getVertxOptions()).onComplete(result -> {
             if (result.failed()) {
                 result.cause().printStackTrace();
             } else {
-                if (consumer) {
-                    result.result().eventBus().consumer("distributed.event", message -> {
-                        System.out.println("Get event on distributed consumer!" + message.body());
-                    });
+                if (isConsumer) {
+                    if (enableDistributedConsumer) {
+                        result.result().eventBus().consumer("distributed.event", message -> {
+                            System.out.println("Get event on distributed consumer!" + message.body());
+                        });
+                    }
                     result.result().eventBus().localConsumer("distributed.event", message -> {
                         System.out.println("Get event on local consumer!" + message.body());
                     });
@@ -45,5 +38,24 @@ public class App {
                 }
             }
         });
+    }
+
+    private static VertxOptions getVertxOptions() {
+        if (useHazelCast) {
+            return new VertxOptions().setClusterManager(new HazelcastClusterManager());
+        } else {
+            ClusterManager cm = new ZookeeperClusterManager(
+                    new JsonObject(Map.of("zookeeperHosts", "localhost:2181"))
+            );
+
+            return new VertxOptions().setClusterManager(cm)
+                    .setEventBusOptions(
+                            new EventBusOptions()
+                                    .setClusterPublicHost("localhost")
+                                    .setClusterPublicPort(port)
+                                    .setHost("0.0.0.0")
+                                    .setPort(port)
+                    );
+        }
     }
 }
